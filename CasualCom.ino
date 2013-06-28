@@ -1,4 +1,7 @@
-#define DisplaySerial Serial
+//#define DisplaySerial Serial
+
+#include <SoftwareSerial.h>
+SoftwareSerial DisplaySerial(10,11);
 
 #include <Picaso_Const4D.h>
 #include <Picaso_Serial_4DLib.h>
@@ -28,13 +31,35 @@ void setup() {
   
   pinMode(potPin, INPUT);
   
+  Display.Callback4D = mycallback;
   DisplaySerial.begin(9600);
   Display.TimeLimit4D  = 5000;
   
   Display.gfx_ScreenMode(LANDSCAPE_R);
   
   clearScreen();
-  drawTimezones();
+  
+  while(!Display.file_Mount()) {
+    Display.putstr("Not mounted");
+    delay(200);
+    Display.gfx_Cls();
+    delay(200);
+  }
+  
+  Display.txt_FontID(FONT1);
+  
+  Display.putstr("Mounted");
+  Display.file_Dir("*.*");
+  
+  int font1 = Display.file_LoadImageControl("NoName2.da1", "NoName2.gc1", 1);
+  
+  Display.txt_FontID(font1);
+  Display.txt_Height(1);
+  Display.txt_Width(1);
+  Display.putstr("DANIEL");
+  
+//  clearScreen();
+//  drawTimezones();
 }
 
 void clearName() {
@@ -64,6 +89,9 @@ void clearScreen() {
 }
 
 void setTimezone(float time, boolean active) {
+  Serial.print("Change timezone: ");
+  Serial.print(time);
+  Serial.println();
   drawTimezone(time, active ? MAGENTA : WHITE);
 }
 
@@ -91,17 +119,31 @@ int wrapIndex(int i, int imax) {
 }
 
 void loop() {
-  potValue = analogRead(potPin);
-  int diff = potValue - prevPotValue;
-  
-  if(abs(diff) > 40) {
-    int prevIndex = personIndex;
-    personIndex = wrapIndex(personIndex + (diff < 0 ? -1 : 1), sizeof(people) / sizeof(int));
-    
-    setTimezone(people[prevIndex], false);
-    setTimezone(people[personIndex], true);
-    setName(peopleNames[personIndex]);
-    
-    prevPotValue = potValue;
+//  potValue = analogRead(potPin);
+//  int diff = potValue - prevPotValue;
+//  
+//  if(abs(diff) > 40) {
+//    int prevIndex = personIndex;
+//    personIndex = wrapIndex(personIndex + (diff < 0 ? -1 : 1), sizeof(people) / sizeof(int));
+//    
+//    setTimezone(people[prevIndex], false);
+//    setTimezone(people[personIndex], true);
+//    setName(peopleNames[personIndex]);
+//    
+//    prevPotValue = potValue;
+//  }
+}
+
+void mycallback(int ErrCode, unsigned char Errorbyte) {
+  const char *Error4DText[] = {"OK\0", "Timeout\0", "NAK\0", "Length\0", "Invalid\0"} ;
+  Serial.print(F("Serial 4D Library reports error ")) ;
+  Serial.print(Error4DText[ErrCode]) ;
+  if (ErrCode == Err4D_NAK)
+  {
+    Serial.print(F(" returned data= ")) ;
+    Serial.println(Errorbyte) ;
   }
+  else
+    Serial.println(F("")) ;
+  while(1) ; // you can return here, or you can loop
 }
