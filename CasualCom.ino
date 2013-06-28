@@ -14,8 +14,8 @@ int colors[] = {0xF7DF, 0x0451, 0xFB56, 0xCAEB};
 int personRadius = 5;
 float personDistance = height / 2 - personRadius;
 
-int people[] = { 7, 9, 13, 18 };
-char peopleNames[][30] = { "Takeshi Okahashi", "Daniel Mahal", "Jane Wong", "Ritika Mathur" };
+int people[] = { 7, 9, 13, 18, 18 };
+char peopleNames[][30] = { "Takeshi", "Daniel", "Jane", "Ritika", "Luke" };
 int personIndex = 0;
 
 int potValue;
@@ -30,6 +30,8 @@ void setup() {
   
   DisplaySerial.begin(9600);
   Display.TimeLimit4D  = 5000;
+  
+  Display.gfx_ScreenMode(LANDSCAPE_R);
   
   clearScreen();
   drawTimezones();
@@ -57,7 +59,6 @@ void setName(char* name) {
 }
 
 void clearScreen() {
-  Display.gfx_ScreenMode(LANDSCAPE_R);
   Display.gfx_BGcolour(bgColor);
   Display.gfx_Cls();
 }
