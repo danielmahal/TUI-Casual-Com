@@ -6,25 +6,41 @@ SoftwareSerial DisplaySerial(10,11);
 #include <Picaso_Const4D.h>
 #include <Picaso_Serial_4DLib.h>
 
+
+// Pins
 const unsigned int potPin = A0;
 
+// Drawing variables
 const unsigned int width = 320;
 const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
 
 int font1;
-
 int colors[] = {0xF7DF, 0x0451, 0xFB56, 0xCAEB};
 
 int personRadius = 5;
 float personDistance = height / 2 - personRadius;
 
+// People
 int people[] = { 7, 9, 13, 18, 18 };
 char peopleNames[][30] = { "WONG", "DANIEL", "TAKESHI", "RITIKA", "LUKE" };
-int personIndex = 0;
+
+// State
+boolean initial = true;
+
+boolean scrolling;
+int scrollIndex;
+unsigned long scrollTimeout;
+
+boolean voice;
+int voiceIndex;
+
+boolean idle = false;
 
 int potValue;
 int prevPotValue;
+
+
 
 Picaso_Serial_4DLib Display(&DisplaySerial);
 
@@ -58,29 +74,13 @@ void setup() {
   drawTimezones();
 }
 
-void clearName() {
-  int pad = personRadius * 4;
-  int x1 = width / 2 - height / 2 + pad;
-  int x2 = width / 2 + height / 2 - pad;
-  int y1 = height / 2 - 10;
-  int y2 = width / 2 + 10;
-  
-  Display.gfx_RectangleFilled(x1, y1, x2, y2, bgColor);
+void clearCenter() {
+  int r = getCenterRadius();
+  Display.gfx_EllipseFilled(width / 2, height / 2, r, r, bgColor);
 }
 
-void setName(char* name) {
-  clearName();
-  
-  Display.txt_FontID(font1);
-  Display.txt_Width(2);
-  Display.txt_Height(2);
-  
-  int textWidth = Display.charwidth(name[0]) * strlen(name);
-  int textHeight = Display.charwidth(name[0]);
-  
-  Display.gfx_MoveTo((width / 2) - (textWidth / 2), (height / 2) - (textHeight / 2));
-  Display.txt_FGcolour(WHITE);
-  Display.putstr(name);
+int getCenterRadius() {
+  return (height / 2 - personRadius * 2) - 5;
 }
 
 void clearScreen() {
@@ -107,16 +107,71 @@ void drawTimezones() {
   }
 }
 
-float getTimezoneAngle(float time) {
-  return -((time / 24.0) * TWO_PI) - PI;
+void drawList() {
+  char* name = peopleNames[scrollIndex];
+  
+  Display.txt_FontID(font1);
+  Display.txt_Width(2);
+  Display.txt_Height(2);
+  
+  int textWidth = Display.charwidth(name[0]) * strlen(name);
+  int textHeight = Display.charheight(name[0]);
+  
+  Display.gfx_MoveTo((width / 2) - (textWidth / 2), (height / 2) - (textHeight / 2));
+  Display.txt_FGcolour(WHITE);
+  Display.putstr(name);
 }
 
-int wrapIndex(int i, int imax) {
-   return ((i % imax) + imax) % imax;
+void drawIdle() {
+  int num = (sizeof(people) / sizeof(int));
+  char string[15];
+  sprintf(string, "%d people", num);
+  
+  Display.txt_FontID(font1);
+  Display.txt_Width(2);
+  Display.txt_Height(2);
+  
+  int textWidth = Display.charwidth('A') * strlen(string);
+  int textHeight = Display.charheight('A');
+  
+  Display.gfx_MoveTo((width / 2) - (textWidth / 2), (height / 2) - (textHeight / 2));
+  Display.txt_FGcolour(WHITE);
+  
+  Display.putstr(string);
 }
 
 void loop() {
-  while (Serial.available()) {
+  // Check scrolling
+  int prevScrollIndex = scrollIndex;
+  
+  int potValue = analogRead(potPin);
+  int potDiff = potValue - prevPotValue;
+  
+  if(abs(potDiff) > 40) {
+    scrollIndex = wrapIndex(scrollIndex + (potDiff < 0 ? -1 : 1), sizeof(people) / sizeof(int));
+    prevPotValue = potValue;
+  }
+  
+  boolean scrollChange = prevScrollIndex != scrollIndex;
+  
+  if(!initial && scrollChange) {
+    scrolling = true;
+    scrollTimeout = millis() + 2000;
+    
+    //setTimezone(people[prevScrollIndex], false);
+    //setTimezone(people[scrollIndex], true);
+    //setName(peopleNames[scrollIndex]);
+  }
+  
+  if(scrollTimeout < millis()) {
+    scrolling = false;
+  }
+  
+  // Check voice
+  boolean voiceChange = false;
+  voice = false;
+  
+  /*while (Serial.available()) {
     int in = int((char) Serial.read());
     digitalWrite(13, in == 1 ? HIGH : LOW);
     
@@ -130,6 +185,29 @@ void loop() {
     } else {
       clearName();
     }
+  }*/
+  
+  // Idle
+  boolean prevIdle = idle;
+  idle = !scrolling && !voice;
+  boolean idleChange = prevIdle != idle;
+  
+  // Draw screen
+  if(scrolling && scrollChange) {
+    Serial.println("Draw list");
+    clearCenter();
+    drawList();
+  }
+ 
+  if(voice && voiceChange) {
+    Serial.println("Draw voice");
+    clearCenter();
+  }
+   
+  if(idle && idleChange) {
+    Serial.println("Draw idle");
+    clearCenter();
+    drawIdle();
   }
   
 //  int prevPersonIndex = personIndex;
@@ -156,4 +234,14 @@ void loop() {
 //    setTimezone(people[personIndex], true);
 //    setName(peopleNames[personIndex]);
 //  }
+
+  initial = false;
+}
+
+float getTimezoneAngle(float time) {
+  return -((time / 24.0) * TWO_PI) - PI;
+}
+
+int wrapIndex(int i, int imax) {
+   return ((i % imax) + imax) % imax;
 }
