@@ -12,13 +12,15 @@ const unsigned int width = 320;
 const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
 
+int font1;
+
 int colors[] = {0xF7DF, 0x0451, 0xFB56, 0xCAEB};
 
 int personRadius = 5;
 float personDistance = height / 2 - personRadius;
 
 int people[] = { 7, 9, 13, 18, 18 };
-char peopleNames[][30] = { "Takeshi", "Daniel", "Jane", "Ritika", "Luke" };
+char peopleNames[][30] = { "WONG", "DANIEL", "TAKESHI", "RITIKA", "LUKE" };
 int personIndex = 0;
 
 int potValue;
@@ -29,9 +31,9 @@ Picaso_Serial_4DLib Display(&DisplaySerial);
 void setup() {
   Serial.begin(9600);
   
+  pinMode(13, OUTPUT);
   pinMode(potPin, INPUT);
   
-  Display.Callback4D = mycallback;
   DisplaySerial.begin(9600);
   Display.TimeLimit4D  = 5000;
   
@@ -41,25 +43,19 @@ void setup() {
   
   while(!Display.file_Mount()) {
     Display.putstr("Not mounted");
-    delay(200);
+    delay(300);
     Display.gfx_Cls();
-    delay(200);
+    delay(100);
   }
   
-  Display.txt_FontID(FONT1);
-  
   Display.putstr("Mounted");
-  Display.file_Dir("*.*");
   
-  int font1 = Display.file_LoadImageControl("NoName2.da1", "NoName2.gc1", 1);
+  delay(500);
   
-  Display.txt_FontID(font1);
-  Display.txt_Height(1);
-  Display.txt_Width(1);
-  Display.putstr("DANIEL");
+  font1 = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
   
-//  clearScreen();
-//  drawTimezones();
+  clearScreen();
+  drawTimezones();
 }
 
 void clearName() {
@@ -75,6 +71,10 @@ void clearName() {
 void setName(char* name) {
   clearName();
   
+  Display.txt_FontID(font1);
+  Display.txt_Width(2);
+  Display.txt_Height(2);
+  
   int textWidth = Display.charwidth(name[0]) * strlen(name);
   int textHeight = Display.charwidth(name[0]);
   
@@ -89,9 +89,6 @@ void clearScreen() {
 }
 
 void setTimezone(float time, boolean active) {
-  Serial.print("Change timezone: ");
-  Serial.print(time);
-  Serial.println();
   drawTimezone(time, active ? MAGENTA : WHITE);
 }
 
@@ -106,7 +103,7 @@ void drawTimezone(float time, int color) {
 
 void drawTimezones() {
   for(int i = 0; i < sizeof(people) / sizeof(int); i++) {
-    setTimezone(people[i], i == 0);
+    setTimezone(people[i], false);
   }
 }
 
@@ -119,31 +116,44 @@ int wrapIndex(int i, int imax) {
 }
 
 void loop() {
+  while (Serial.available()) {
+    int in = int((char) Serial.read());
+    digitalWrite(13, in == 1 ? HIGH : LOW);
+    
+    boolean active = in % 2 == 1;
+    int person = floor(in / 2);
+    
+    setTimezone(people[person], active);
+    
+    if(active) {
+      setName(peopleNames[person]);
+    } else {
+      clearName();
+    }
+  }
+  
+//  int prevPersonIndex = personIndex;
+//  
+//  while (Serial.available()) {
+//    char inChar = (char) Serial.read();
+//    led = inChar == 1;
+//    
+//    digitalWrite(13, led ? HIGH : LOW);
+//    
+//    personIndex = wrapIndex(personIndex + 1, sizeof(people) / sizeof(int));
+//  }
+//  
 //  potValue = analogRead(potPin);
 //  int diff = potValue - prevPotValue;
 //  
 //  if(abs(diff) > 40) {
-//    int prevIndex = personIndex;
 //    personIndex = wrapIndex(personIndex + (diff < 0 ? -1 : 1), sizeof(people) / sizeof(int));
-//    
-//    setTimezone(people[prevIndex], false);
-//    setTimezone(people[personIndex], true);
-//    setName(peopleNames[personIndex]);
-//    
 //    prevPotValue = potValue;
 //  }
-}
-
-void mycallback(int ErrCode, unsigned char Errorbyte) {
-  const char *Error4DText[] = {"OK\0", "Timeout\0", "NAK\0", "Length\0", "Invalid\0"} ;
-  Serial.print(F("Serial 4D Library reports error ")) ;
-  Serial.print(Error4DText[ErrCode]) ;
-  if (ErrCode == Err4D_NAK)
-  {
-    Serial.print(F(" returned data= ")) ;
-    Serial.println(Errorbyte) ;
-  }
-  else
-    Serial.println(F("")) ;
-  while(1) ; // you can return here, or you can loop
+//  
+//  if(prevPersonIndex != personIndex) {
+//    setTimezone(people[prevPersonIndex], false);
+//    setTimezone(people[personIndex], true);
+//    setName(peopleNames[personIndex]);
+//  }
 }
