@@ -197,6 +197,8 @@ void loop() {
     Serial.println("Draw list");
     clearCenter();
     drawList();
+    setTimezone(people[prevScrollIndex], false);
+    setTimezone(people[scrollIndex], true);
   }
  
   if(voice && voiceChange) {
@@ -208,6 +210,7 @@ void loop() {
     Serial.println("Draw idle");
     clearCenter();
     drawIdle();
+    setTimezone(people[scrollIndex], false);
   }
   
 //  int prevPersonIndex = personIndex;
