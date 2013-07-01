@@ -8,7 +8,12 @@ SoftwareSerial DisplaySerial(10,11);
 
 
 // Pins
-const unsigned int potPin = A0;
+const int sdPin = 2;
+const int microswitchPin = 3;
+const int encoder0PinA = 4;
+const int encoder0PinB = 5;
+const int encoder1PinA = 6;
+const int encoder1PinB = 7;
 
 // Drawing variables
 const unsigned int width = 320;
@@ -27,6 +32,7 @@ char peopleNames[][30] = { "WONG", "DANIEL", "TAKESHI", "RITIKA", "LUKE" };
 
 // State
 boolean initial = true;
+boolean power = false;
 
 boolean scrolling;
 int scrollIndex;
@@ -37,8 +43,17 @@ int voiceIndex;
 
 boolean idle = false;
 
-int potValue;
-int prevPotValue;
+boolean sdcard;
+boolean microswitch;
+boolean prevMicroswitch;
+long msLastDebounceTime;
+long msDebounceDelay = 50;
+
+int encoder0PinALast = LOW;
+int encoder0Read = LOW;
+
+int encoder1PinALast = LOW;
+int encoder1Read = LOW;
 
 
 
@@ -47,8 +62,20 @@ Picaso_Serial_4DLib Display(&DisplaySerial);
 void setup() {
   Serial.begin(9600);
   
-  pinMode(13, OUTPUT);
-  pinMode(potPin, INPUT);
+  pinMode(sdPin, INPUT);
+  pinMode(microswitchPin, INPUT);
+  
+  pinMode (encoder0PinA,INPUT);
+  pinMode (encoder0PinB,INPUT);
+  
+  pinMode (encoder1PinA,INPUT);
+  pinMode (encoder1PinB,INPUT);
+   
+  digitalWrite(encoder0PinA, HIGH);
+  digitalWrite(encoder0PinB, HIGH);
+  
+  digitalWrite(encoder1PinA, HIGH);
+  digitalWrite(encoder1PinB, HIGH);
   
   DisplaySerial.begin(9600);
   Display.TimeLimit4D  = 5000;
@@ -69,9 +96,6 @@ void setup() {
   delay(500);
   
   font1 = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
-  
-  clearScreen();
-  drawTimezones();
 }
 
 void clearCenter() {
@@ -141,16 +165,66 @@ void drawIdle() {
 }
 
 void loop() {
-  // Check scrolling
+  boolean prevPower = power;
+  boolean forceDraw = false;
+  
+  boolean prevSdcard = sdcard;
+  sdcard = digitalRead(sdPin);
+  
+  if(sdcard != prevSdcard && sdcard) {
+    Serial.println("SD card change");
+    power = !power;
+  }
+  
+  if(power != prevPower || initial) {
+    if(!power) {
+      clearScreen();
+    } else {
+      forceDraw = true;
+      drawTimezones();
+    }
+  }
+  
+  if(!power) {
+    return;
+  }
+
   int prevScrollIndex = scrollIndex;
   
-  int potValue = analogRead(potPin);
-  int potDiff = potValue - prevPotValue;
+  boolean microswitchRead = digitalRead(microswitchPin);
   
-  if(abs(potDiff) > 40) {
-    scrollIndex = wrapIndex(scrollIndex + (potDiff < 0 ? -1 : 1), sizeof(people) / sizeof(int));
-    prevPotValue = potValue;
+  encoder0Read = digitalRead(encoder0PinA);
+  encoder1Read = digitalRead(encoder1PinA);
+  
+  if(microswitchRead != prevMicroswitch) {
+    msLastDebounceTime = millis();
   }
+  
+  if ((millis() - msLastDebounceTime) > msDebounceDelay) {
+    if(microswitchRead != microswitch) {
+      microswitch = microswitchRead;
+      
+      Serial.println(microswitch ? "Microswitch pressed" : "Microswitch released");
+    }
+  }
+  
+  prevMicroswitch = microswitchRead;
+  
+  if ((encoder0PinALast == LOW) && (encoder0Read == HIGH)) {
+    int dir = digitalRead(encoder0PinB) == LOW ? -1 : 1;
+    scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
+  }
+  
+  if ((encoder1PinALast == LOW) && (encoder1Read == HIGH)) {
+    if (digitalRead(encoder1PinB) == LOW) {
+      Serial.println("Encoder #2 -1");
+    } else {
+      Serial.println("Encoder #2 +1");
+    }
+  }
+  
+  encoder0PinALast = encoder0Read;
+  encoder1PinALast = encoder1Read;
   
   boolean scrollChange = prevScrollIndex != scrollIndex;
   
@@ -173,7 +247,7 @@ void loop() {
   boolean idleChange = prevIdle != idle;
   
   // Draw screen
-  if(scrolling && scrollChange) {
+  if(scrolling && (scrollChange || forceDraw)) {
     Serial.println("Draw list");
     clearCenter();
     drawList();
@@ -181,12 +255,12 @@ void loop() {
     setTimezone(people[scrollIndex], true);
   }
  
-  if(voice && voiceChange) {
+  if(voice && (voiceChange || forceDraw)) {
     Serial.println("Draw voice");
     clearCenter();
   }
    
-  if(idle && idleChange) {
+  if(idle && (idleChange || forceDraw)) {
     Serial.println("Draw idle");
     clearCenter();
     drawIdle();
