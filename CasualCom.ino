@@ -157,10 +157,6 @@ void loop() {
   if(!initial && scrollChange) {
     scrolling = true;
     scrollTimeout = millis() + 2000;
-    
-    //setTimezone(people[prevScrollIndex], false);
-    //setTimezone(people[scrollIndex], true);
-    //setName(peopleNames[scrollIndex]);
   }
   
   if(scrollTimeout < millis()) {
@@ -170,22 +166,6 @@ void loop() {
   // Check voice
   boolean voiceChange = false;
   voice = false;
-  
-  /*while (Serial.available()) {
-    int in = int((char) Serial.read());
-    digitalWrite(13, in == 1 ? HIGH : LOW);
-    
-    boolean active = in % 2 == 1;
-    int person = floor(in / 2);
-    
-    setTimezone(people[person], active);
-    
-    if(active) {
-      setName(peopleNames[person]);
-    } else {
-      clearName();
-    }
-  }*/
   
   // Idle
   boolean prevIdle = idle;
@@ -212,31 +192,6 @@ void loop() {
     drawIdle();
     setTimezone(people[scrollIndex], false);
   }
-  
-//  int prevPersonIndex = personIndex;
-//  
-//  while (Serial.available()) {
-//    char inChar = (char) Serial.read();
-//    led = inChar == 1;
-//    
-//    digitalWrite(13, led ? HIGH : LOW);
-//    
-//    personIndex = wrapIndex(personIndex + 1, sizeof(people) / sizeof(int));
-//  }
-//  
-//  potValue = analogRead(potPin);
-//  int diff = potValue - prevPotValue;
-//  
-//  if(abs(diff) > 40) {
-//    personIndex = wrapIndex(personIndex + (diff < 0 ? -1 : 1), sizeof(people) / sizeof(int));
-//    prevPotValue = potValue;
-//  }
-//  
-//  if(prevPersonIndex != personIndex) {
-//    setTimezone(people[prevPersonIndex], false);
-//    setTimezone(people[personIndex], true);
-//    setName(peopleNames[personIndex]);
-//  }
 
   initial = false;
 }
