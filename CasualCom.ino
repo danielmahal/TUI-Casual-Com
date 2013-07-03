@@ -20,7 +20,6 @@ const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
 const unsigned int accentColor = getColor(79, 227, 135);
 
-int freepixel;
 int franklin36;
 int franklin26;
 
@@ -81,7 +80,6 @@ void setup() {
   delay(200);
   clearScreen();
   
-  freepixel = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
   franklin36 = Display.file_LoadImageControl("Franklin.da1", "Franklin.gc1", 1);
   franklin26 = Display.file_LoadImageControl("Franklin.da2", "Franklin.gc2", 1);
 }
