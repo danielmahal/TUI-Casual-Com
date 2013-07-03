@@ -15,20 +15,22 @@ Encoder positionKnob(3, 5);
 Encoder volumeKnob(2, 4);
 
 // Drawing variables
-const unsigned int width = 320;
+const unsigned int width = 292;
 const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
-const unsigned int accentColor = getColor(73, 190, 117);
+const unsigned int accentColor = getColor(79, 227, 135);
 
-int font1;
+int freepixel;
+int franklin36;
+int franklin26;
 
 int personRadius = 5;
-float personDistance = height / 2 - personRadius;
+float personDistance = height / 2 - personRadius - 10;
 
 // People
 int people[] = { 7, 9, 13, 18, 18 };
 char peopleNames[][30] = { "Wong", "Daniel", "Takeshi", "Ritika", "Luke" };
-char peoplePlaces[][30] = { "Toronto", "OSLO", "Tokyo", "Copenhagen", "London" };
+char peoplePlaces[][30] = { "Toronto", "Oslo", "Tokyo", "Copenhagen", "London" };
 
 // State
 boolean initial = true;
@@ -79,7 +81,9 @@ void setup() {
   delay(200);
   clearScreen();
   
-  font1 = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
+  freepixel = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
+  franklin36 = Display.file_LoadImageControl("Franklin.da1", "Franklin.gc1", 1);
+  franklin26 = Display.file_LoadImageControl("Franklin.da2", "Franklin.gc2", 1);
 }
 
 void drawPersonIcon(int x, int y, int r, int color) {
@@ -94,11 +98,11 @@ void drawPersonIcon(int x, int y, int r, int color) {
 
 void clearCenter() {
   int r = getCenterRadius();
-  Display.gfx_EllipseFilled(width / 2, height / 2, r, r, bgColor);
+  Display.gfx_CircleFilled(width / 2, height / 2, r, bgColor);
 }
 
 int getCenterRadius() {
-  return (height / 2 - personRadius * 2) - 5;
+  return (personDistance - personRadius) - 2;
 }
 
 void clearScreen() {
@@ -125,14 +129,28 @@ void drawTimezones() {
   }
 }
 
-void setTextSize(int textSize) {
+void setFontSize(int textSize) {
   Display.txt_Width(textSize);
   Display.txt_Height(textSize);
 }
 
+void setFont(int font) {
+  Display.txt_FontID(font);
+}
+
+//int getTextCenterX(char* str) {
+//  int textWidth = Display.charwidth(str[0]) * strlen(str);
+//  return width / 2 - textWidth / 2;
+//}
+
 int getTextCenterX(char* str) {
-  int textWidth = Display.charwidth(str[0]) * strlen(str);
-  return width / 2 - textWidth / 2;
+  int stringWidth = 0;
+  
+  for(int i = 0; i < strlen(str); i++) {
+    stringWidth += Display.charwidth(str[i]);
+  }
+  
+  return width / 2 - stringWidth / 2;
 }
 
 int getTextCenterY(char* str) {
@@ -150,13 +168,13 @@ void drawList() {
   
   int y = 80;
   
-  setTextSize(2);
+  setFont(franklin36);
   
   Display.gfx_MoveTo(getTextCenterX(name), y);
   Display.txt_FGcolour(WHITE);
   Display.putstr(name);
   
-  setTextSize(1);
+  setFont(franklin26);
   Display.gfx_MoveTo(getTextCenterX(place), y + 40);
   Display.putstr(place);
   
@@ -168,7 +186,7 @@ void drawList() {
 void drawVoice() {
   char* str = peopleNames[voiceIndex];
   
-  setTextSize(2);
+  setFontSize(2);
   
   Display.gfx_MoveTo(getTextCenterX(str), getTextCenterY(str));
   Display.txt_FGcolour(WHITE);
@@ -177,22 +195,23 @@ void drawVoice() {
 };
 
 void drawIdle() {
+  setFont(franklin36);
+  
   char* time = getTime(1);
-  setTextSize(2);
-  Display.gfx_MoveTo(getTextCenterX(time), 85);
+  Display.gfx_MoveTo(getTextCenterX(time), 75);
   Display.putstr(time);
   
-  setTextSize(1);
+  setFont(franklin26);
   
   int nPeople = (sizeof(people) / sizeof(int));
   char str[15];
   sprintf(str, "%d connected", nPeople);
-  int x = getTextCenterX(str) - 6;
-  int y = 120;
+  int x = getTextCenterX(str) - 10;
+  int y = 110;
   
-  drawPersonIcon(x, y + 2, 3, accentColor);
+  drawPersonIcon(x, y + 3, 4, accentColor);
   
-  Display.gfx_MoveTo(x + 14, y);
+  Display.gfx_MoveTo(x + 18, y);
   Display.txt_FGcolour(WHITE);
   
   Display.putstr(str);
@@ -299,9 +318,9 @@ void loop() {
   if(scrolling && (scrollChange || forceDraw)) {
     Serial.println("Draw list");
     clearCenter();
-    drawList();
     setTimezone(people[prevScrollIndex], false);
     setTimezone(people[scrollIndex], true);
+    drawList();
   }
  
   if(voice && (voiceChange || forceDraw)) {
