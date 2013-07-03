@@ -43,7 +43,7 @@ int voiceIndex;
 
 boolean idle = false;
 
-boolean sdcard;
+boolean sdcard = true;
 boolean microswitch;
 boolean prevMicroswitch;
 long msLastDebounceTime;
@@ -66,8 +66,6 @@ void setup() {
   Display.TimeLimit4D  = 5000;
   
   Display.gfx_ScreenMode(LANDSCAPE_R);
-  
-  Serial.println("Setup");
   
   while(!Display.file_Mount()) {
     Display.putstr("Not mounted");
@@ -168,7 +166,7 @@ void drawList() {
 }
 
 void drawVoice() {
-  char str[15] = "LOOOL";
+  char* str = peopleNames[voiceIndex];
   
   setTextSize(2);
   
@@ -212,12 +210,12 @@ void loop() {
   boolean prevSdcard = sdcard;
   sdcard = digitalRead(sdPin);
   
-  if(sdcard != prevSdcard && sdcard) {
+  if(sdcard != prevSdcard) {
     Serial.println("SD card change");
     power = !power;
   }
   
-  /*if(power != prevPower || initial) {
+  if(power != prevPower || initial) {
     if(!power) {
       clearScreen();
     } else {
@@ -228,7 +226,7 @@ void loop() {
   
   if(!power) {
     return;
-  }*/
+  }
   
   // Microswitch
   boolean microswitchRead = digitalRead(microswitchPin);
