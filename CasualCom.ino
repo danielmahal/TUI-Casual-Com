@@ -1,4 +1,4 @@
-//#define DisplaySerial Serial
+#include <Encoder.h>
 
 #include <SoftwareSerial.h>
 SoftwareSerial DisplaySerial(10,11);
@@ -6,14 +6,13 @@ SoftwareSerial DisplaySerial(10,11);
 #include <Picaso_Const4D.h>
 #include <Picaso_Serial_4DLib.h>
 
+const int rotaryThreshold = 3;
 
 // Pins
 const int sdPin = 8;
 const int microswitchPin = 9;
-const int encoder0PinA = 4;
-const int encoder0PinB = 5;
-const int encoder1PinA = 6;
-const int encoder1PinB = 7;
+Encoder positionKnob(3, 5);
+Encoder volumeKnob(2, 4);
 
 // Drawing variables
 const unsigned int width = 320;
@@ -50,13 +49,10 @@ boolean prevMicroswitch;
 long msLastDebounceTime;
 long msDebounceDelay = 50;
 
-int encoder0PinALast = LOW;
-int encoder0Read = LOW;
-
-int encoder1PinALast = LOW;
-int encoder1Read = LOW;
-
-
+int positionIndex;
+int prevPositionIndex;
+int volumeIndex;
+int prevVolumeIndex;
 
 Picaso_Serial_4DLib Display(&DisplaySerial);
 
@@ -66,22 +62,12 @@ void setup() {
   pinMode(sdPin, INPUT);
   pinMode(microswitchPin, INPUT);
   
-  pinMode (encoder0PinA,INPUT);
-  pinMode (encoder0PinB,INPUT);
-  
-  pinMode (encoder1PinA,INPUT);
-  pinMode (encoder1PinB,INPUT);
-   
-  digitalWrite(encoder0PinA, HIGH);
-  digitalWrite(encoder0PinB, HIGH);
-  
-  digitalWrite(encoder1PinA, HIGH);
-  digitalWrite(encoder1PinB, HIGH);
-  
   DisplaySerial.begin(9600);
   Display.TimeLimit4D  = 5000;
   
   Display.gfx_ScreenMode(LANDSCAPE_R);
+  
+  Serial.println("Setup");
   
   while(!Display.file_Mount()) {
     Display.putstr("Not mounted");
@@ -90,9 +76,9 @@ void setup() {
     delay(100);
   }
   
+  clearScreen();
   Display.putstr("Mounted");
-  
-  delay(5000);
+  delay(200);
   clearScreen();
   
   font1 = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
@@ -164,18 +150,20 @@ void drawList() {
   char* name = peopleNames[scrollIndex];
   char* place = peoplePlaces[scrollIndex];
   
-  setTextSize(3);
+  int y = 80;
   
-  Display.gfx_MoveTo(getTextCenterX(name), 60);
+  setTextSize(2);
+  
+  Display.gfx_MoveTo(getTextCenterX(name), y);
   Display.txt_FGcolour(WHITE);
   Display.putstr(name);
   
-  setTextSize(2);
-  Display.gfx_MoveTo(getTextCenterX(place), 110);
+  setTextSize(1);
+  Display.gfx_MoveTo(getTextCenterX(place), y + 40);
   Display.putstr(place);
   
   char* time = getTime(1);
-  Display.gfx_MoveTo(getTextCenterX(time), 140);
+  Display.gfx_MoveTo(getTextCenterX(time), y + 60);
   Display.putstr(time);
 }
 
@@ -259,24 +247,24 @@ void loop() {
   // Encoder
   int prevScrollIndex = scrollIndex;
   
-  encoder0Read = digitalRead(encoder0PinA);
-  encoder1Read = digitalRead(encoder1PinA);
+  int positionIndex = positionKnob.read();
+  int positionDiff = positionIndex - prevPositionIndex;
   
-  if ((encoder0PinALast == LOW) && (encoder0Read == HIGH)) {
-    int dir = digitalRead(encoder0PinB) == LOW ? -1 : 1;
+  int volumeIndex = volumeKnob.read();
+  int volumeDiff = volumeIndex - prevVolumeIndex;
+  
+  if(abs(positionDiff) > rotaryThreshold) {
+    int dir = positionDiff < 0 ? -1 : 1;
     scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
+    prevPositionIndex = positionIndex;
   }
   
-  if ((encoder1PinALast == LOW) && (encoder1Read == HIGH)) {
-    if (digitalRead(encoder1PinB) == LOW) {
-      Serial.println("Encoder #2 -1");
-    } else {
-      Serial.println("Encoder #2 +1");
-    }
+  if(abs(volumeDiff) > rotaryThreshold) {
+    Serial.print("Volume = ");
+    Serial.print(volumeDiff < 0 ? -1 : 1);
+    Serial.println();
+    prevVolumeIndex = volumeIndex;
   }
-  
-  encoder0PinALast = encoder0Read;
-  encoder1PinALast = encoder1Read;
   
   boolean scrollChange = prevScrollIndex != scrollIndex;
   
