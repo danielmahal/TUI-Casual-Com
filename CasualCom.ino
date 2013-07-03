@@ -28,7 +28,8 @@ float personDistance = height / 2 - personRadius;
 
 // People
 int people[] = { 7, 9, 13, 18, 18 };
-char peopleNames[][30] = { "WONG", "DANIEL", "TAKESHI", "RITIKA", "LUKE" };
+char peopleNames[][30] = { "Wong", "Daniel", "Takeshi", "Ritika", "Luke" };
+char peoplePlaces[][30] = { "Toronto", "OSLO", "Tokyo", "Copenhagen", "London" };
 
 // State
 boolean initial = true;
@@ -82,8 +83,6 @@ void setup() {
   
   Display.gfx_ScreenMode(LANDSCAPE_R);
   
-  clearScreen();
-  
   while(!Display.file_Mount()) {
     Display.putstr("Not mounted");
     delay(300);
@@ -93,9 +92,20 @@ void setup() {
   
   Display.putstr("Mounted");
   
-  delay(500);
+  delay(5000);
+  clearScreen();
   
   font1 = Display.file_LoadImageControl("NoName1.da1", "NoName1.gc1", 1);
+}
+
+void drawPersonIcon(int x, int y, int r, int color) {
+  float bodyDistance = 2;
+  y = y + r;
+  x = x + r;
+  Display.gfx_CircleFilled(x, y, r / 1.5, color);
+  Display.gfx_CircleFilled(x, y + r * bodyDistance, r, color);
+  Display.gfx_MoveTo(x - r, y + r * bodyDistance);
+  Display.gfx_RectangleFilled(x - r, y + r * bodyDistance, x + r, y + r * bodyDistance + r, color);
 }
 
 void clearCenter() {
@@ -131,37 +141,75 @@ void drawTimezones() {
   }
 }
 
-void drawList() {
-  char* name = peopleNames[scrollIndex];
-  
-  Display.txt_FontID(font1);
-  Display.txt_Width(2);
-  Display.txt_Height(2);
-  
-  int textWidth = Display.charwidth(name[0]) * strlen(name);
-  int textHeight = Display.charheight(name[0]);
-  
-  Display.gfx_MoveTo((width / 2) - (textWidth / 2), (height / 2) - (textHeight / 2));
-  Display.txt_FGcolour(WHITE);
-  Display.putstr(name);
+void setTextSize(int textSize) {
+  Display.txt_Width(textSize);
+  Display.txt_Height(textSize);
 }
 
-void drawIdle() {
-  int num = (sizeof(people) / sizeof(int));
-  char string[15];
-  sprintf(string, "%d people", num);
+int getTextCenterX(char* str) {
+  int textWidth = Display.charwidth(str[0]) * strlen(str);
+  return width / 2 - textWidth / 2;
+}
+
+int getTextCenterY(char* str) {
+  int textHeight = Display.charheight(str[0]);
+  return height / 2 - textHeight / 2;
+}
+
+char* getTime(int time) {
+  return "18:45";
+}
+
+void drawList() {
+  char* name = peopleNames[scrollIndex];
+  char* place = peoplePlaces[scrollIndex];
   
-  Display.txt_FontID(font1);
-  Display.txt_Width(2);
-  Display.txt_Height(2);
+  setTextSize(3);
   
-  int textWidth = Display.charwidth('A') * strlen(string);
-  int textHeight = Display.charheight('A');
+  Display.gfx_MoveTo(getTextCenterX(name), 60);
+  Display.txt_FGcolour(WHITE);
+  Display.putstr(name);
   
-  Display.gfx_MoveTo((width / 2) - (textWidth / 2), (height / 2) - (textHeight / 2));
+  setTextSize(2);
+  Display.gfx_MoveTo(getTextCenterX(place), 110);
+  Display.putstr(place);
+  
+  char* time = getTime(1);
+  Display.gfx_MoveTo(getTextCenterX(time), 140);
+  Display.putstr(time);
+}
+
+void drawVoice() {
+  char str[15] = "LOOOL";
+  
+  setTextSize(2);
+  
+  Display.gfx_MoveTo(getTextCenterX(str), getTextCenterY(str));
   Display.txt_FGcolour(WHITE);
   
-  Display.putstr(string);
+  Display.putstr(str);
+};
+
+void drawIdle() {
+  char* time = getTime(1);
+  setTextSize(2);
+  Display.gfx_MoveTo(getTextCenterX(time), 85);
+  Display.putstr(time);
+  
+  setTextSize(1);
+  
+  int nPeople = (sizeof(people) / sizeof(int));
+  char str[15];
+  sprintf(str, "%d connected", nPeople);
+  int x = getTextCenterX(str) - 6;
+  int y = 120;
+  
+  drawPersonIcon(x, y + 2, 3, GRAY);
+  
+  Display.gfx_MoveTo(x + 14, y);
+  Display.txt_FGcolour(WHITE);
+  
+  Display.putstr(str);
 }
 
 void loop() {
@@ -177,7 +225,7 @@ void loop() {
     power = !power;
   }
   
-  if(power != prevPower || initial) {
+  /*if(power != prevPower || initial) {
     if(!power) {
       clearScreen();
     } else {
@@ -188,7 +236,7 @@ void loop() {
   
   if(!power) {
     return;
-  }
+  }*/
   
   // Microswitch
   boolean microswitchRead = digitalRead(microswitchPin);
@@ -234,7 +282,7 @@ void loop() {
   
   if(!initial && scrollChange) {
     scrolling = true;
-    scrollTimeout = millis() + 2000;
+    scrollTimeout = millis() + 5000;
   }
   
   if(scrollTimeout < millis()) {
@@ -243,7 +291,14 @@ void loop() {
   
   // Check voice
   boolean voiceChange = false;
-  voice = false;
+  
+  while(Serial.available()) {
+    int in = int(Serial.read());
+    
+    voiceChange = true;
+    voice = in % 2 == 1;
+    voiceIndex = round(in / 2);
+  }
   
   // Idle
   boolean prevIdle = idle;
@@ -262,6 +317,7 @@ void loop() {
   if(voice && (voiceChange || forceDraw)) {
     Serial.println("Draw voice");
     clearCenter();
+    drawVoice();
   }
    
   if(idle && (idleChange || forceDraw)) {
