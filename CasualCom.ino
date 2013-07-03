@@ -8,8 +8,8 @@ SoftwareSerial DisplaySerial(10,11);
 
 
 // Pins
-const int sdPin = 2;
-const int microswitchPin = 3;
+const int sdPin = 8;
+const int microswitchPin = 9;
 const int encoder0PinA = 4;
 const int encoder0PinB = 5;
 const int encoder1PinA = 6;
@@ -165,6 +165,7 @@ void drawIdle() {
 }
 
 void loop() {
+  // Power
   boolean prevPower = power;
   boolean forceDraw = false;
   
@@ -188,13 +189,9 @@ void loop() {
   if(!power) {
     return;
   }
-
-  int prevScrollIndex = scrollIndex;
   
+  // Microswitch
   boolean microswitchRead = digitalRead(microswitchPin);
-  
-  encoder0Read = digitalRead(encoder0PinA);
-  encoder1Read = digitalRead(encoder1PinA);
   
   if(microswitchRead != prevMicroswitch) {
     msLastDebounceTime = millis();
@@ -209,6 +206,13 @@ void loop() {
   }
   
   prevMicroswitch = microswitchRead;
+  
+  
+  // Encoder
+  int prevScrollIndex = scrollIndex;
+  
+  encoder0Read = digitalRead(encoder0PinA);
+  encoder1Read = digitalRead(encoder1PinA);
   
   if ((encoder0PinALast == LOW) && (encoder0Read == HIGH)) {
     int dir = digitalRead(encoder0PinB) == LOW ? -1 : 1;
