@@ -18,9 +18,9 @@ Encoder volumeKnob(2, 4);
 const unsigned int width = 320;
 const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
+const unsigned int accentColor = getColor(73, 190, 117);
 
 int font1;
-int colors[] = {0xF7DF, 0x0451, 0xFB56, 0xCAEB};
 
 int personRadius = 5;
 float personDistance = height / 2 - personRadius;
@@ -109,7 +109,7 @@ void clearScreen() {
 }
 
 void setTimezone(float time, boolean active) {
-  drawTimezone(time, active ? MAGENTA : WHITE);
+  drawTimezone(time, active ? accentColor : WHITE);
 }
 
 void clearTimezone(float time) {
@@ -192,12 +192,16 @@ void drawIdle() {
   int x = getTextCenterX(str) - 6;
   int y = 120;
   
-  drawPersonIcon(x, y + 2, 3, GRAY);
+  drawPersonIcon(x, y + 2, 3, accentColor);
   
   Display.gfx_MoveTo(x + 14, y);
   Display.txt_FGcolour(WHITE);
   
   Display.putstr(str);
+}
+
+uint16_t getColor(int r, int g, int b) {
+  return ((r / 8) << 11) | ((g / 4) << 5) | (b / 8);
 }
 
 void loop() {
