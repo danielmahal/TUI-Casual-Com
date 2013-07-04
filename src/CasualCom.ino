@@ -202,37 +202,32 @@ void drawPersonIcon(int x, int y, int r, int color) {
     Display.gfx_RectangleFilled(x - r, y + r * bodyDistance, x + r, y + r * bodyDistance + r, color);
 }
 
-void drawList() {
-    char* name = peopleNames[scrollIndex];
-    char* place = peoplePlaces[scrollIndex];
+void drawPerson(int index, boolean talking) {
+    char* name = peopleNames[index];
+    char* place = peoplePlaces[index];
 
-    int y = 70;
+    int y = talking ? 80 : 70;
 
     setFont(franklin36);
+    Display.txt_FGcolour(accentColor);
 
     Display.gfx_MoveTo(getTextCenterX(name), y);
-    Display.txt_FGcolour(WHITE);
     Display.putstr(name);
 
+    Display.txt_FGcolour(WHITE);
     setFont(franklin26);
+
     Display.gfx_MoveTo(getTextCenterX(place), y + 40);
     Display.putstr(place);
 
     char* time = getTime(1);
     Display.gfx_MoveTo(getTextCenterX(time), y + 65);
     Display.putstr(time);
+
+    if(talking) {
+        drawVolumeIcon(width / 2, y -15, 5, WHITE, 1);
+    }
 }
-
-void drawVoice() {
-    char* str = peopleNames[voiceIndex];
-
-    setFontSize(2);
-
-    Display.gfx_MoveTo(getTextCenterX(str), getTextCenterY(str));
-    Display.txt_FGcolour(WHITE);
-
-    Display.putstr(str);
-};
 
 void drawVolume(float value, boolean redraw) {
     if(redraw) {
@@ -245,7 +240,7 @@ void drawVolume(float value, boolean redraw) {
         drawVolumeCircle(value);
     }
 
-    drawVolumeIcon(width / 2, height / 2, 5, WHITE);
+    drawVolumeIcon(width / 2, height / 2, 5, WHITE, value);
 }
 
 void drawVolumeCircle(float value) {
@@ -256,7 +251,7 @@ void drawVolumeCircle(float value) {
     Display.gfx_CircleFilled(width / 2, height / 2, radius, color);
 }
 
-void drawVolumeIcon(int x, int y, int s, int color) {
+void drawVolumeIcon(int x, int y, int s, int color, float volume) {
     x = x;
 
     int x1 = x - s;
@@ -268,7 +263,7 @@ void drawVolumeIcon(int x, int y, int s, int color) {
 
     Display.gfx_TriangleFilled(x1, y1, x2, y2, x3, y3, color);
 
-    int lines = ((volumeValue + 0.1) * 3);
+    int lines = ((volume + 0.1) * 3);
     // int lineWidth = s / lines;
 
     for(int i = 0; i < lines; i++) {
@@ -420,12 +415,13 @@ void loop() {
             setTimezone(people[scrollIndex], true);
         }
 
-        drawList();
+        drawPerson(scrollIndex, false);
     }
 
-    if(voice && (voiceChange || forceDraw)) {
+    if(voice && !scrolling && (voiceChange || forceDraw)) {
         clearCenter();
-        drawVoice();
+        drawPerson(voiceIndex, true);
+        setTimezone(people[scrollIndex], true);
     }
 
     if(idle && (idleChange || forceDraw)) {
