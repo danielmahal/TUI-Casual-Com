@@ -1,9 +1,8 @@
-TUI-Casual-Com
-==============
+# CoTalk
 
 CIID TUI project by Takeshi Okahashi, Ritika Mathur, Jane Wong and Daniel Mahal.
 
-## Todo:
+### Todo:
 * Make direct communication screen
 * Add personas and real time differences
 * Add enter / leave functionality
