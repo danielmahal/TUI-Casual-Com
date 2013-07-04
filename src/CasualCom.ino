@@ -21,6 +21,8 @@ const unsigned int width = 292;
 const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
 const unsigned int accentColor = getColor(79, 227, 135);
+const unsigned int volumeMinRadius = 20;
+const unsigned int volumeMaxRadius = height / 2;
 
 int franklin36;
 int franklin26;
@@ -45,8 +47,10 @@ boolean voice;
 int voiceIndex;
 
 boolean volume;
-float volumeValue;
+float volumeValue = 0.7;
 long volumeTimeout;
+int potValue;
+int prevPotValue;
 
 boolean idle = false;
 
@@ -166,37 +170,6 @@ void drawPersonIcon(int x, int y, int r, int color) {
     Display.gfx_RectangleFilled(x - r, y + r * bodyDistance, x + r, y + r * bodyDistance + r, color);
 }
 
-void drawSoundIcon(int x, int y, int s, int color) {
-    x = x - s * 1.5;
-
-    int x1 = x - s / 2;
-    int y1 = y;
-    int x2 = x + s;
-    int y2 = y - s;
-    int x3 = x + s;
-    int y3 = y + s;
-
-    Display.gfx_TriangleFilled(x1, y1, x2, y2, x3, y3, color);
-
-    int lineWidth = s / 3;
-
-    for(int i = 0; i < lineWidth * 3; i++) {
-        int d = (i / lineWidth) * s + s * 2.5 + (i % lineWidth);
-
-        for(int k = 0; k <= 3; k++) {
-            float angle = (PI / 9) * k + (PI / 3);
-            int px = x + sin(angle) * d;
-            int py = y + cos(angle) * d;
-
-            if(k == 0) {
-                Display.gfx_MoveTo(px, py);
-            } else {
-                Display.gfx_LineTo(px, py);
-            }
-        }
-    }
-}
-
 void drawList() {
     char* name = peopleNames[scrollIndex];
     char* place = peoplePlaces[scrollIndex];
@@ -254,23 +227,58 @@ void drawIdle() {
     Display.putstr(str);
 }
 
-void drawVolumeLabel(float value) {
-    char str[15];
+void drawVolume(float value, boolean redraw) {
+    if(redraw) {
+        clearScreen();
 
-    int v = round(volumeValue * 100);
+        for(float i = 1; i >= value; i -= volumeControlSpeed) {
+            drawVolumeCircle(i);
+        }
+    } else {
+        drawVolumeCircle(value);
+    }
 
-    sprintf(str, "%d", v);
-    setFont(franklin26);
-    Display.gfx_MoveTo(getTextCenterX(str), getTextCenterY(str) + 10);
-    Display.putstr(str);
+    drawVolumeIcon(width / 2, height / 2, 5, WHITE);
 }
 
-void drawVolumeTick(float value, boolean active) {
+void drawVolumeCircle(float value) {
+    int shade = value * 80 + 20;
+    int color = getColor(shade, shade, shade);
+    int radius = value * (volumeMaxRadius - volumeMinRadius) + volumeMinRadius;
 
+    Display.gfx_CircleFilled(width / 2, height / 2, radius, color);
 }
 
-void drawVolumeTicks() {
-    drawSoundIcon(width / 2, height / 2 - 20, 4, WHITE);
+void drawVolumeIcon(int x, int y, int s, int color) {
+    x = x;
+
+    int x1 = x - s;
+    int y1 = y;
+    int x2 = x;
+    int y2 = y - s;
+    int x3 = x;
+    int y3 = y + s;
+
+    Display.gfx_TriangleFilled(x1, y1, x2, y2, x3, y3, color);
+
+    int lines = ((volumeValue + 0.1) * 3);
+    // int lineWidth = s / lines;
+
+    for(int i = 0; i < lines; i++) {
+        int d = i * s + s * 1.6;
+
+        for(int k = 0; k <= 2; k++) {
+            float angle = (PI / 6) * k + (PI / 3);
+            int px = x + sin(angle) * d;
+            int py = y + cos(angle) * d;
+
+            if(k == 0) {
+                Display.gfx_MoveTo(px, py);
+            } else {
+                Display.gfx_LineTo(px, py);
+            }
+        }
+    }
 }
 
 uint16_t getColor(int r, int g, int b) {
@@ -290,7 +298,7 @@ void loop() {
         power = !power;
     }
 
-    if(power != prevPower || initial) {
+    /*if(power != prevPower || initial) {
         if(!power) {
             clearScreen();
         } else {
@@ -301,7 +309,7 @@ void loop() {
 
     if(!power) {
         return;
-    }
+    }*/
 
     // Microswitch
     boolean microswitchRead = digitalRead(microswitchPin);
@@ -327,29 +335,43 @@ void loop() {
     int positionDiff = positionIndex - prevPositionIndex;
 
     boolean prevVolume = volume;
-    boolean volumeChange = false;
-    float prevVolumeValue = volumeValue;
-    int volumeIndex = volumeKnob.read();
-    int volumeDiff = volumeIndex - prevVolumeIndex;
+    // boolean volumeChange = false;
+    // float prevVolumeValue = volumeValue;
 
-    if(abs(positionDiff) > rotaryThreshold) {
-        int dir = positionDiff < 0 ? -1 : 1;
-        scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
-        prevPositionIndex = positionIndex;
-    }
+    // int volumeIndex = volumeKnob.read();
+    // int volumeDiff = volumeIndex - prevVolumeIndex;
 
-    if(abs(volumeDiff) > rotaryThreshold) {
-        Serial.print("Volume = ");
-        Serial.print(volumeDiff < 0 ? -1 : 1);
-        Serial.println();
+    // if(abs(positionDiff) > rotaryThreshold) {
+    //     int dir = positionDiff < 0 ? -1 : 1;
+    //     scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
+    //     prevPositionIndex = positionIndex;
+    // }
 
-        float add = volumeDiff < 0 ? -volumeControlSpeed : volumeControlSpeed;
-        volumeValue = max(min(volumeValue + add, 1), 0);
-        prevVolumeIndex = volumeIndex;
-        volumeChange = true;
-    }
+    // if(abs(volumeDiff) > rotaryThreshold) {
+    //     Serial.print("Volume = ");
+    //     Serial.print(volumeDiff < 0 ? -1 : 1);
+    //     Serial.println();
+
+    //     float add = volumeDiff < 0 ? -volumeControlSpeed : volumeControlSpeed;
+    //     volumeValue = max(min(volumeValue + add, 1), 0);
+    //     prevVolumeIndex = volumeIndex;
+    //     volumeChange = true;
+    // }
 
     // Volume
+
+    // Temp: PotPin 12
+    float prevVolumeValue = volumeValue;
+    potValue = analogRead(A0);
+    int potDiff = prevPotValue - potValue;
+
+    if(abs(potDiff) > 20) {
+        float add = potDiff < 0 ? -volumeControlSpeed : volumeControlSpeed;
+        volumeValue = max(min(volumeValue + add, 1), 0);
+        prevPotValue = potValue;
+    }
+
+    boolean volumeChange = volumeValue != prevVolumeValue;
 
     if(!initial && volumeChange) {
         volume = true;
@@ -390,17 +412,13 @@ void loop() {
 
     // Draw screen
     if(volume && (volumeChange || forceDraw)) {
-        Serial.println("Draw volume");
+        boolean redraw = prevVolume != volume;
 
-        if(prevVolume != volume) {
-            clearCenter();
-            drawVolumeLabel(volumeValue);
-            drawVolumeTicks();
-        } else {
-            drawVolumeLabel(volumeValue);
-            drawVolumeTick(prevVolumeValue, false);
-            drawVolumeTick(prevVolume, true);
-        }
+        Serial.print("Draw volume. Redraw: ");
+        Serial.print(redraw);
+        Serial.println();
+
+        drawVolume(volumeValue, redraw);
     }
 
     if(scrolling && (scrollChange || forceDraw)) {
@@ -419,7 +437,7 @@ void loop() {
 
     if(idle && (idleChange || forceDraw)) {
         Serial.println("Draw idle");
-        clearCenter();
+        clearScreen();
         drawIdle();
         setTimezone(people[scrollIndex], false);
     }
