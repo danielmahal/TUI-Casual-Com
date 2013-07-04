@@ -17,7 +17,7 @@ Encoder positionKnob(3, 5);
 Encoder volumeKnob(2, 4);
 
 // Drawing variables
-const unsigned int width = 292;
+const unsigned int width = 282;
 const unsigned int height = 240;
 const unsigned int bgColor = BLACK;
 const unsigned int accentColor = getColor(79, 227, 135);
@@ -30,7 +30,7 @@ int franklin26;
 int personRadius = 5;
 float personDistance = height / 2 - personRadius - 10;
 
-// People
+// People (Should be in order of timezones)
 int people[] = { 7, 9, 13, 18, 18 };
 char peopleNames[][30] = { "Wong", "Daniel", "Takeshi", "Ritika", "Luke" };
 char peoplePlaces[][30] = { "Toronto", "Oslo", "Tokyo", "Copenhagen", "London" };
@@ -47,10 +47,8 @@ boolean voice;
 int voiceIndex;
 
 boolean volume;
-float volumeValue = 0.7;
+float volumeValue = 0.5;
 long volumeTimeout;
-int potValue;
-int prevPotValue;
 
 boolean idle = false;
 
@@ -95,6 +93,11 @@ void setup() {
     franklin26 = Display.file_LoadImageControl("Franklin.da2", "Franklin.gc2", 1);
 }
 
+void clearScreen() {
+    Display.gfx_BGcolour(bgColor);
+    Display.gfx_Cls();
+}
+
 void clearCenter() {
     int r = getCenterRadius();
     Display.gfx_CircleFilled(width / 2, height / 2, r, bgColor);
@@ -102,11 +105,6 @@ void clearCenter() {
 
 int getCenterRadius() {
     return (personDistance - personRadius) - 2;
-}
-
-void clearScreen() {
-    Display.gfx_BGcolour(bgColor);
-    Display.gfx_Cls();
 }
 
 void setTimezone(float time, boolean active) {
@@ -123,8 +121,17 @@ void drawTimezone(float time, int color) {
 }
 
 void drawTimezones() {
+    int prev;
+
     for(int i = 0; i < sizeof(people) / sizeof(int); i++) {
-        setTimezone(people[i], false);
+        int current = people[i];
+        boolean active = scrollIndex == i && scrolling;
+
+        if(prev != current || active) {
+            setTimezone(people[i], active);
+        }
+
+        prev = people[i];
     }
 }
 
@@ -160,8 +167,33 @@ char* getTime(int time) {
     return "18:45";
 }
 
+void drawIdle() {
+    Display.txt_FGcolour(WHITE);
+    setFont(franklin36);
+
+    int baseY = 70;
+
+    char* time = getTime(1);
+    Display.gfx_MoveTo(getTextCenterX(time), baseY);
+    Display.putstr(time);
+
+    setFont(franklin26);
+
+    int nPeople = (sizeof(people) / sizeof(int));
+    char str[15];
+    sprintf(str, "%d connected", nPeople);
+    int x = getTextCenterX(str) - 10;
+    int y = baseY + 35;
+
+    drawPersonIcon(x, y + 3, 4, accentColor);
+
+    Display.gfx_MoveTo(x + 18, y);
+
+    Display.putstr(str);
+}
+
 void drawPersonIcon(int x, int y, int r, int color) {
-    float bodyDistance = 2;
+    float bodyDistance = 1.8;
     y = y + r;
     x = x + r;
     Display.gfx_CircleFilled(x, y, r / 1.5, color);
@@ -201,31 +233,6 @@ void drawVoice() {
 
     Display.putstr(str);
 };
-
-void drawIdle() {
-    setFont(franklin36);
-
-    int baseY = 70;
-
-    char* time = getTime(1);
-    Display.gfx_MoveTo(getTextCenterX(time), baseY);
-    Display.putstr(time);
-
-    setFont(franklin26);
-
-    int nPeople = (sizeof(people) / sizeof(int));
-    char str[15];
-    sprintf(str, "%d connected", nPeople);
-    int x = getTextCenterX(str) - 10;
-    int y = baseY + 35;
-
-    drawPersonIcon(x, y + 3, 4, accentColor);
-
-    Display.gfx_MoveTo(x + 18, y);
-    Display.txt_FGcolour(WHITE);
-
-    Display.putstr(str);
-}
 
 void drawVolume(float value, boolean redraw) {
     if(redraw) {
@@ -335,50 +342,36 @@ void loop() {
     int positionDiff = positionIndex - prevPositionIndex;
 
     boolean prevVolume = volume;
-    // boolean volumeChange = false;
-    // float prevVolumeValue = volumeValue;
-
-    // int volumeIndex = volumeKnob.read();
-    // int volumeDiff = volumeIndex - prevVolumeIndex;
-
-    // if(abs(positionDiff) > rotaryThreshold) {
-    //     int dir = positionDiff < 0 ? -1 : 1;
-    //     scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
-    //     prevPositionIndex = positionIndex;
-    // }
-
-    // if(abs(volumeDiff) > rotaryThreshold) {
-    //     Serial.print("Volume = ");
-    //     Serial.print(volumeDiff < 0 ? -1 : 1);
-    //     Serial.println();
-
-    //     float add = volumeDiff < 0 ? -volumeControlSpeed : volumeControlSpeed;
-    //     volumeValue = max(min(volumeValue + add, 1), 0);
-    //     prevVolumeIndex = volumeIndex;
-    //     volumeChange = true;
-    // }
-
-    // Volume
-
-    // Temp: PotPin 12
     float prevVolumeValue = volumeValue;
-    potValue = analogRead(A0);
-    int potDiff = prevPotValue - potValue;
 
-    if(abs(potDiff) > 20) {
-        float add = potDiff < 0 ? -volumeControlSpeed : volumeControlSpeed;
-        volumeValue = max(min(volumeValue + add, 1), 0);
-        prevPotValue = potValue;
+    int volumeIndex = volumeKnob.read();
+    int volumeDiff = volumeIndex - prevVolumeIndex;
+
+    if(abs(positionDiff) > rotaryThreshold) {
+        int dir = positionDiff < 0 ? -1 : 1;
+        scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
+        prevPositionIndex = positionIndex;
+        scrolling = true;
     }
 
-    boolean volumeChange = volumeValue != prevVolumeValue;
+    if(abs(volumeDiff) > rotaryThreshold) {
+        float add = volumeDiff < 0 ? -volumeControlSpeed : volumeControlSpeed;
+        volumeValue = max(min(volumeValue + add, 1), 0);
+        prevVolumeIndex = volumeIndex;
+        volume = true;
+        scrolling = false;
+    }
+
+    // Volume
+    boolean volumeChange = (volumeValue != prevVolumeValue) || (volume != prevVolume);
 
     if(!initial && volumeChange) {
-        volume = true;
         volumeTimeout = millis() + volumeDelay;
     }
 
-    if(volumeTimeout < millis()) {
+    if(volumeTimeout < millis() && volumeTimeout > 0) {
+        volumeTimeout = 0;
+        Serial.println("Volume timout. Set volume to false");
         volume = false;
     }
 
@@ -386,7 +379,6 @@ void loop() {
     boolean scrollChange = prevScrollIndex != scrollIndex;
 
     if(!initial && scrollChange) {
-        scrolling = true;
         scrollTimeout = millis() + 5000;
     }
 
@@ -413,33 +405,42 @@ void loop() {
     // Draw screen
     if(volume && (volumeChange || forceDraw)) {
         boolean redraw = prevVolume != volume;
-
-        Serial.print("Draw volume. Redraw: ");
-        Serial.print(redraw);
-        Serial.println();
-
         drawVolume(volumeValue, redraw);
     }
 
     if(scrolling && (scrollChange || forceDraw)) {
-        Serial.println("Draw list");
-        clearCenter();
-        setTimezone(people[prevScrollIndex], false);
-        setTimezone(people[scrollIndex], true);
+        if(volume) {
+            Serial.println("Scrolling. Set volume to false");
+            volume = false;
+            clearScreen();
+            drawTimezones();
+        } else {
+            clearCenter();
+            setTimezone(people[prevScrollIndex], false);
+            setTimezone(people[scrollIndex], true);
+        }
+
         drawList();
     }
 
     if(voice && (voiceChange || forceDraw)) {
-        Serial.println("Draw voice");
         clearCenter();
         drawVoice();
     }
 
     if(idle && (idleChange || forceDraw)) {
-        Serial.println("Draw idle");
-        clearScreen();
+        Serial.print("Draw idle. Prev volume is ");
+        Serial.println(prevVolume);
+
+        if(prevVolume || initial) {
+            clearScreen();
+            drawTimezones();
+        } else {
+            clearCenter();
+            setTimezone(people[scrollIndex], false);
+        }
+
         drawIdle();
-        setTimezone(people[scrollIndex], false);
     }
 
     initial = false;
