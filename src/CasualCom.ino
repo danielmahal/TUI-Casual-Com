@@ -31,13 +31,17 @@ int personRadius = 5;
 float personDistance = height / 2 - personRadius - 10;
 
 // People (Should be in order of timezones)
-int people[] = { 7, 9, 13, 18, 18 };
-char peopleNames[][30] = { "Wong", "Daniel", "Takeshi", "Ritika", "Luke" };
-char peoplePlaces[][30] = { "Toronto", "Oslo", "Tokyo", "Copenhagen", "London" };
+long currentTime = 3942;
+long timer;
+
+int currentLocation = 1;
+int people[] = { -5, -4, 0, 1, 3, 4, 5, 9 };
+char peopleNames[][30] = { "Ara", "Jane", "Luke", "Ritika", "Takeshi", "Bob", "Julie", "Takeshi" };
+char peoplePlaces[][30] = { "Honolulu", "Toronto", "London", "Seoul", "Tokyo", "Hell", "Shit", "Tokyo" };
 
 // State
 boolean initial = true;
-boolean power = false;
+boolean power = true;
 
 boolean scrolling;
 int scrollIndex;
@@ -46,13 +50,15 @@ unsigned long scrollTimeout;
 boolean voice;
 int voiceIndex;
 
+boolean direct;
+
 boolean volume;
 float volumeValue = 0.5;
 long volumeTimeout;
 
 boolean idle = false;
 
-boolean sdcard = true;
+boolean sdcard = false;
 boolean microswitch;
 boolean prevMicroswitch;
 
@@ -108,7 +114,7 @@ int getCenterRadius() {
 }
 
 void setTimezone(float time, boolean active) {
-    drawTimezone(time, active ? accentColor : WHITE);
+    drawTimezone(time, active ? accentColor : getColor(100, 100, 100));
 }
 
 void clearTimezone(float time) {
@@ -163,19 +169,17 @@ int getTextCenterY(char* str) {
     return height / 2 - textHeight / 2;
 }
 
-char* getTime(int time) {
-    return "18:45";
-}
-
 void drawIdle() {
     Display.txt_FGcolour(WHITE);
     setFont(franklin36);
 
     int baseY = 70;
 
-    char* time = getTime(1);
-    Display.gfx_MoveTo(getTextCenterX(time), baseY);
-    Display.putstr(time);
+    char timeStr[15];
+    sprintf(timeStr, "%02d:%02d", getHours(), getMinutes());
+
+    Display.gfx_MoveTo(getTextCenterX(timeStr), baseY);
+    Display.putstr(timeStr);
 
     setFont(franklin26);
 
@@ -202,9 +206,14 @@ void drawPersonIcon(int x, int y, int r, int color) {
     Display.gfx_RectangleFilled(x - r, y + r * bodyDistance, x + r, y + r * bodyDistance + r, color);
 }
 
-void drawPerson(int index, boolean talking) {
+void drawPerson(int index, boolean talking, boolean direct) {
     char* name = peopleNames[index];
     char* place = peoplePlaces[index];
+
+    if(direct) {
+        Display.gfx_CircleFilled(width / 2, height / 2, getCenterRadius() - 15, accentColor);
+        Display.gfx_CircleFilled(width / 2, height / 2, getCenterRadius() - 18, bgColor);
+    }
 
     int y = talking ? 80 : 70;
 
@@ -220,9 +229,11 @@ void drawPerson(int index, boolean talking) {
     Display.gfx_MoveTo(getTextCenterX(place), y + 40);
     Display.putstr(place);
 
-    char* time = getTime(1);
-    Display.gfx_MoveTo(getTextCenterX(time), y + 65);
-    Display.putstr(time);
+    char timeStr[15];
+    sprintf(timeStr, "%02d:%02d", getHours(people[index]), getMinutes(people[index]));
+
+    Display.gfx_MoveTo(getTextCenterX(timeStr), y + 65);
+    Display.putstr(timeStr);
 
     if(talking) {
         drawVolumeIcon(width / 2, y -15, 5, WHITE, 1);
@@ -287,7 +298,32 @@ uint16_t getColor(int r, int g, int b) {
     return ((r / 8) << 11) | ((g / 4) << 5) | (b / 8);
 }
 
+int getHours() {
+    return (currentTime / 3600) % 3600;
+}
+
+int getMinutes() {
+    return (currentTime / 60) % 60;
+}
+
+int getHours(int t) {
+    int h = getHours() + t;
+    if(h < 0) h = 24 + h;
+    return h;
+}
+
+int getMinutes(int t) {
+    return getMinutes();
+}
+
 void loop() {
+    if(timer < millis()) {
+        currentTime++;
+        timer = 0;
+
+        timer = millis() + 1000;
+    }
+
     // Power
     boolean prevPower = power;
     boolean forceDraw = false;
@@ -297,23 +333,25 @@ void loop() {
 
     if(sdcard != prevSdcard) {
         Serial.println("SD card change");
-        power = !power;
+        if(sdcard) power = !power;
     }
 
-    /*if(power != prevPower || initial) {
+    boolean powerChange = power != prevPower;
+
+    if(powerChange || initial) {
         if(!power) {
             clearScreen();
         } else {
             forceDraw = true;
-            drawTimezones();
         }
     }
 
     if(!power) {
         return;
-    }*/
+    }
 
     // Microswitch
+    boolean directChange = false;
     boolean microswitchRead = digitalRead(microswitchPin);
 
     if(microswitchRead != prevMicroswitch) {
@@ -324,7 +362,16 @@ void loop() {
         if(microswitchRead != microswitch) {
             microswitch = microswitchRead;
 
-            Serial.println(microswitch ? "Microswitch pressed" : "Microswitch released");
+            if((scrolling || direct) && microswitch) {
+                direct = !direct;
+                directChange = true;
+
+                if(direct) {
+                    scrolling = false;
+                } else {
+                    scrolling = true;
+                }
+            }
         }
     }
 
@@ -343,10 +390,13 @@ void loop() {
     int volumeDiff = volumeIndex - prevVolumeIndex;
 
     if(abs(positionDiff) > rotaryThreshold) {
-        int dir = positionDiff < 0 ? -1 : 1;
-        scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
+        if(!direct) {
+            int dir = positionDiff < 0 ? -1 : 1;
+            scrollIndex = wrapIndex(scrollIndex + dir, sizeof(people) / sizeof(int));
+            scrolling = true;
+        }
+
         prevPositionIndex = positionIndex;
-        scrolling = true;
     }
 
     if(abs(volumeDiff) > rotaryThreshold) {
@@ -358,9 +408,9 @@ void loop() {
     }
 
     // Volume
-    boolean volumeChange = (volumeValue != prevVolumeValue) || (volume != prevVolume);
+    boolean volumeValueChange = volumeValue != prevVolumeValue;
 
-    if(!initial && volumeChange) {
+    if(!initial && volumeValueChange) {
         volumeTimeout = millis() + volumeDelay;
     }
 
@@ -370,8 +420,10 @@ void loop() {
         volume = false;
     }
 
+    boolean volumeChange = volumeValueChange || volume != prevVolume;
+
     // Scroll
-    boolean scrollChange = prevScrollIndex != scrollIndex;
+    boolean scrollChange = prevScrollIndex != scrollIndex || (directChange && !direct);
 
     if(!initial && scrollChange) {
         scrollTimeout = millis() + 5000;
@@ -394,7 +446,7 @@ void loop() {
 
     // Idle
     boolean prevIdle = idle;
-    idle = !scrolling && !voice && !volume;
+    idle = !scrolling && !voice && !volume && !direct;
     boolean idleChange = prevIdle != idle;
 
     // Draw screen
@@ -403,7 +455,16 @@ void loop() {
         drawVolume(volumeValue, redraw);
     }
 
-    if(scrolling && (scrollChange || forceDraw)) {
+    if(direct && (directChange || (volumeChange && !volume))) {
+        if(volumeChange) {
+            clearScreen();
+            drawTimezones();
+        }
+
+        drawPerson(scrollIndex, false, true);
+    }
+
+    if(scrolling && !direct && (scrollChange || forceDraw)) {
         if(volume) {
             Serial.println("Scrolling. Set volume to false");
             volume = false;
@@ -415,12 +476,12 @@ void loop() {
             setTimezone(people[scrollIndex], true);
         }
 
-        drawPerson(scrollIndex, false);
+        drawPerson(scrollIndex, false, false);
     }
 
     if(voice && !scrolling && (voiceChange || forceDraw)) {
         clearCenter();
-        drawPerson(voiceIndex, true);
+        drawPerson(voiceIndex, true, false);
         setTimezone(people[scrollIndex], true);
     }
 
@@ -428,7 +489,7 @@ void loop() {
         Serial.print("Draw idle. Prev volume is ");
         Serial.println(prevVolume);
 
-        if(prevVolume || initial) {
+        if(prevVolume || initial || powerChange) {
             clearScreen();
             drawTimezones();
         } else {
@@ -443,7 +504,7 @@ void loop() {
 }
 
 float getTimezoneAngle(float time) {
-    return -((time / 24.0) * TWO_PI) - PI;
+    return -(((time + currentLocation) / 24.0) * TWO_PI);
 }
 
 int wrapIndex(int i, int imax) {
